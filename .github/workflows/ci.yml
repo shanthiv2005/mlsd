@@ -1,4 +1,4 @@
-name: "CI — Train, Test and Build"
+name: "CI — Test and Build"
 
 on:
   push:
@@ -19,33 +19,21 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
       - name: Cache pip
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements-local.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
       - name: Install dependencies
-        run: pip install -r requirements-local.txt
+        run: pip install -r requirements.txt
 
       - name: Run tests
         run: pytest tests/ -v
-
-      - name: Start MLflow in background
-        run: |
-          mlflow server --host 0.0.0.0 --port 5000 \
-            --backend-store-uri sqlite:///mlflow.db \
-            --default-artifact-root ./mlflow-artifacts &
-          sleep 8
-
-      - name: Train model
-        run: python src/train.py
-        env:
-          MLFLOW_TRACKING_URI: http://localhost:5000
 
       - name: Upload models folder
         uses: actions/upload-artifact@v4
@@ -59,4 +47,4 @@ jobs:
           docker build -t fraud-detection:latest .
 
       - name: CI complete
-        run: echo "CI complete — image built, models saved"
+        run: echo "CI complete — tests passed, Docker image built"
