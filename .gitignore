@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.env
+.venv/
+venv/
+
+# ML artifacts — commented out so trained models can be pushed for Streamlit Cloud
+# models/*.pkl
+# models/*.txt
+mlflow.db
+mlflow-artifacts/
+
+# Data (download separately from Kaggle)
+data/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

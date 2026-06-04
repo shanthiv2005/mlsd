@@ -1,0 +1,61 @@
+name: "CD — Deploy to Minikube"
+
+on:
+  workflow_run:
+    workflows: ["CI — Train, Test and Build"]
+    branches: [main]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download trained models artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: trained-models
+          path: models/
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image locally
+        run: |
+          cp models/scaler.pkl scaler.pkl 2>/dev/null || touch scaler.pkl
+          docker build -t fraud-detection:${{ github.event.workflow_run.head_sha }} .
+          docker tag fraud-detection:${{ github.event.workflow_run.head_sha }} fraud-detection:latest
+
+      - name: Load image into Minikube
+        run: minikube image load fraud-detection:latest
+
+      - name: Update image tag in deployment.yaml
+        run: |
+          sed -i "s|fraud-detection:latest|fraud-detection:${{ github.event.workflow_run.head_sha }}|g" \
+            k8s/deployment.yaml
+
+      - name: Deploy to Minikube
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+
+      - name: Wait for deployment rollout
+        run: kubectl rollout status deployment/fraud-detection --timeout=180s
+
+      - name: Print Minikube service URL
+        run: minikube service fraud-detection-svc --url
+
+      - name: CD complete
+        run: |
+          echo "Local deployment complete"
+          echo "MLflow UI: http://localhost:5000"
+          echo "App on Minikube: run 'minikube service fraud-detection-svc --url'"
+          # Note: This job must run on a self-hosted runner.
+          # To set it up:
+          # 1. Go to GitHub repo -> Settings -> Actions -> Runners
+          # 2. Click "New self-hosted runner"
+          # 3. Follow the instructions to install and start the runner locally.
